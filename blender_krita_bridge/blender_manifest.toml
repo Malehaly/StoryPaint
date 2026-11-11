@@ -1,0 +1,24 @@
+# Blender 4.2+ extension manifest (canonical name is `blender_manifest.toml`).
+
+schema_version = "1.0.0"
+
+id = "blender_krita_bridge"
+version = "1.0.1"
+name = "StoryPaint"
+tagline = "Round-trip Grease Pencil drawings between Blender and Krita"
+maintainer = "StoryPaint"
+type = "add-on"
+
+website = "https://github.com/Malehaly/StoryPaint"
+tags = ["Animation", "Grease Pencil"]
+
+blender_version_min = "5.2.0"
+
+license = ["SPDX:GPL-3.0-or-later"]
+copyright = ["Copyright (c) 2026 StoryPaint"]
+
+# Permissions are DECLARATIVE: each value is a single short sentence (no period)
+# shown to the user to explain why the extension needs that resource.
+[permissions]
+files = "Install the Krita plugin and exchange artwork files"
+network = "Communicate with the local Krita application"

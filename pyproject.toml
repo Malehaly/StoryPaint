@@ -1,0 +1,8 @@
+# StoryPaint — Blender extension + Krita plugin repository.
+# This file only carries pytest configuration; the addon is NOT a pip package
+# (it is installed into Blender as an extension).
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["blender_krita_bridge/tests"]
+addopts = "-q"

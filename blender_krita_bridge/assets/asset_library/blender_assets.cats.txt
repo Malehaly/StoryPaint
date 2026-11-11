@@ -1,0 +1,4 @@
+# This is an Asset Catalog Definition file for Blender.
+VERSION 1
+
+157e5268-5993-4e9d-99c5-afac0e4462e2:StoryPaint:StoryPaint
