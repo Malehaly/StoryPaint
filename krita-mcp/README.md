@@ -7,6 +7,11 @@ interpreter, on the GUI thread.
 This is a small development utility used to test and drive StoryPaint's Krita
 side. It is independent of the StoryPaint plugin itself.
 
+> **Note:** despite the name, this tool does **not** implement the Model
+> Context Protocol (MCP). It speaks a minimal, custom JSON-over-socket protocol
+> with the bundled `krita_mcp_client.py` — it will not work with a generic MCP
+> client.
+
 ## Install
 
 1. Copy the `krita_mcp/` folder and `krita_mcp.desktop` into Krita's `pykrita`
@@ -39,6 +44,18 @@ echo "print('hi')" | python krita_mcp_client.py
 - The namespace persists between calls, so you can define a function once and
   call it later.
 - `krita_mcp_client.py` — connects, sends code and prints the response.
+
+## Security
+
+`server.py` executes arbitrary Python code with the user's permissions. Treat it
+as a development tool, not a hardened service:
+
+- It listens **only on `127.0.0.1`** (loopback) and is never exposed to the
+  network.
+- It has **no authentication** — any local process can connect and send code.
+- Enable the plugin only on trusted, single-user machines, and only while you
+  actually need it; disable it when done.
+- Do not forward the port or run it on shared or untrusted machines.
 
 ## Testing without Krita
 

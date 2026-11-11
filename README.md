@@ -120,6 +120,20 @@ Export unlocks once the Krita side is installed, enabled and connected. Finish t
 
 Confirm that `krita_bridge/` and `krita_bridge.desktop` are inside Krita's `pykrita` directory, then restart Krita.
 
+## Security notes
+
+- The Blender ↔ Krita bridge is a local-only socket on `localhost:65432`. It
+  serializes messages with `pickle` behind a fixed auth key, and is intended for
+  trusted, single-user desktop use — it is never exposed to the network.
+  Hardening the transport (for example, moving to JSON) is planned for a future
+  release.
+- [`krita-mcp/`](krita-mcp/) is a development-only code-execution server with no
+  authentication; see its README before enabling it.
+- A few modules under `core/` (`svg.py`, `package.py`, `manifest.py`,
+  `hashes.py`) and `blender/svg_io.py` come from an earlier vector-transfer
+  design and are not part of the current image-plane workflow. They are kept as
+  legacy code in case vector transfers return.
+
 ## Contributing
 
 Pull requests are welcome. For bugs and feature requests, [open an issue](https://github.com/Malehaly/StoryPaint/issues).
