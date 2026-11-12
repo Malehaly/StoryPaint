@@ -67,7 +67,7 @@ StoryPaint also adds tools for working with Grease Pencil and assembling shots:
 - **Blender 5.2 or newer**
 - **Krita 5.x** with Python plugin support
 
-Tested with Blender 5.2 and Krita 5.3.
+Tested with Blender 5.2–5.3 and Krita 5.3.
 
 ## Installation
 
