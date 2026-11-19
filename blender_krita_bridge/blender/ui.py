@@ -15,33 +15,54 @@ class VIEW3D_PT_bridge(bpy.types.Panel):
 
     def draw(self, context):
         layout = self.layout
+        scene = context.scene
         status = krita_check.check_status()
+        bridge_on = scene.storypaint_bridge_enabled
 
-        # ── Section 1: Krita side (setup + check) ──
+        # ── 1: Startup workspace (independent of the bridge) ──
         box = layout.box()
+        box.operator("bridge.load_startup", icon="FILE_NEW")
+
+        layout.separator()
+
+        # ── 2: Bridge connection (on/off) ──
+        box = layout.box()
+        box.label(text="Bridge Connection", icon="LINKED")
+        box.prop(scene, "storypaint_bridge_enabled", text="Enable Bridge")
+
+        layout.separator()
+
+        # ── 3: Bridge tools (unlocked once the bridge is on) ──
+        box = layout.box()
+        box.enabled = bridge_on
+        box.label(text="Bridge Tools", icon="EXPORT")
         row = box.row(align=True)
         row.label(text="Krita Side")
         row.operator("bridge.check_krita_side", icon="FILE_REFRESH")
         krita_check.draw_status_block(box, status)
+        box.operator("bridge.export_package")
+        box.operator("bridge.export_image_planes")
+        if not bridge_on:
+            box.label(text="Enable the bridge to unlock", icon="LOCKED")
         box.operator(
             "wm.url_open", text="Installation guide (README)", icon="URL"
         ).url = krita_check.INSTALL_GUIDE_URL
 
         layout.separator()
 
-        # ── Section 2: Blender startup workspace (always available) ──
+        # ── 4: Configurations (collapsible) ──
         box = layout.box()
-        box.operator("bridge.load_startup", icon="FILE_NEW")
-
-        layout.separator()
-
-        # ── Section 3: Export (unlocked once the Krita side is ready) ──
-        box = layout.box()
-        box.enabled = status["ready"]
-        box.operator("bridge.export_package")
-        box.operator("bridge.export_image_planes")
-        if not status["ready"]:
-            box.label(text="Enable the Krita side to unlock export", icon="LOCKED")
+        row = box.row()
+        row.prop(
+            scene,
+            "storypaint_show_config",
+            text="Configurations",
+            icon="TRIA_DOWN" if scene.storypaint_show_config else "TRIA_RIGHT",
+            emboss=False,
+        )
+        if scene.storypaint_show_config:
+            box.label(text="Save images inside:")
+            box.prop(scene, "storypaint_image_storage", text="")
 
 
 class BRIDGE_OT_toggle_gp_draw(bpy.types.Operator):

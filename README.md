@@ -10,6 +10,10 @@ StoryPaint is free and open source.
 - [Releases](https://github.com/Malehaly/StoryPaint/releases)
 - [Issue tracker](https://github.com/Malehaly/StoryPaint/issues)
 
+<p align="center">
+  <img src="images/storypaint_featured.png" alt="StoryPaint" width="900">
+</p>
+
 ## What StoryPaint does
 
 ### Blender → Krita
@@ -32,7 +36,7 @@ StoryPaint brings the painted layers into Blender as camera-aligned image planes
 
 > **Note:** the return trip is image-based. It does not turn the painted result back into editable Grease Pencil strokes.
 
-The two applications talk over a local socket on `localhost:65432`. Everything is transferred locally — no manual export or drag-and-drop.
+The two applications talk over a local socket on `127.0.0.1:65432`. Everything is transferred locally — no manual export or drag-and-drop. For security the bridge is off by default: turn it on from the **Bridge Connection** section of the StoryPaint panel.
 
 ## Storyboard tools in Blender
 
@@ -83,9 +87,10 @@ StoryPaint has two parts: a Blender extension and a Krita plugin. Install the Bl
 ### 2. Krita plugin (assisted, from Blender)
 
 1. Open the 3D Viewport sidebar with `N` and select the **StoryPaint** tab.
-2. In the **Krita Side** section, click **Install Krita Side**.
-3. In Krita, open **Settings → Configure Krita → Python Plugin Manager**, enable **StoryPaint**, then restart Krita.
-4. Back in Blender, click **Check Krita Side**. When the connection is detected, the export controls unlock.
+2. In **Bridge Connection**, turn on **Enable Bridge** (the bridge is off by default).
+3. In the **Bridge Tools** section under **Krita Side**, click **Install Krita Side**.
+4. In Krita, open **Settings → Configure Krita → Python Plugin Manager**, enable **StoryPaint**, then restart Krita.
+5. Back in Blender, click **Check Krita Side**. When the connection is detected, the export controls unlock.
 
 ### Krita plugin (manual)
 
@@ -122,11 +127,10 @@ Confirm that `krita_bridge/` and `krita_bridge.desktop` are inside Krita's `pykr
 
 ## Security notes
 
-- The Blender ↔ Krita bridge is a local-only socket on `localhost:65432`. It
-  serializes messages with `pickle` behind a fixed auth key, and is intended for
-  trusted, single-user desktop use — it is never exposed to the network.
-  Hardening the transport (for example, moving to JSON) is planned for a future
-  release.
+- The Blender ↔ Krita bridge is a local-only socket on `127.0.0.1:65432`. It
+  exchanges JSON messages (no pickle) and authenticates with a random,
+  per-install key. The listener is off by default and is turned on from the
+  **Bridge Connection** section of the StoryPaint panel.
 - [`krita-mcp/`](krita-mcp/) is a development-only code-execution server with no
   authentication; see its README before enabling it.
 - A few modules under `core/` (`svg.py`, `package.py`, `manifest.py`,

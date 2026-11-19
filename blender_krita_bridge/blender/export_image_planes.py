@@ -174,6 +174,9 @@ class BRIDGE_OT_export_image_planes(bpy.types.Operator):
             return {"CANCELLED"}
 
         server = connection.BridgeServer.instance()
+        if not connection.bridge_enabled():
+            self.report({"WARNING"}, "Enable the StoryPaint bridge first")
+            return {"CANCELLED"}
         server.start()
         message = {
             "type": protocol.MSG_EXPORT,

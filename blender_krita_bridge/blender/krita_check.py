@@ -19,6 +19,7 @@ import time
 
 import bpy
 
+from ..core import bridge_key
 from . import connection
 
 KRITA_PLUGIN_NAME = "krita_bridge"
@@ -188,20 +189,10 @@ def check_status(force=False):
 def _krita_plugin_source_dir():
     """Folder containing the Krita plugin to install (``krita_bridge/`` + desktop).
 
-    In the dev repo this is ``krita_plugin/`` (so live edits are picked up); in a
-    shipped zip it is the bundled ``krita_side/`` copy inside the addon package.
+    The shipped addon bundles the plugin under ``krita_side/``; install from there.
     """
     here = os.path.dirname(os.path.abspath(__file__))
-    candidates = [
-        os.path.normpath(os.path.join(here, "..", "..", "krita_plugin")),
-        os.path.normpath(os.path.join(here, "..", "krita_side")),
-    ]
-    for c in candidates:
-        if os.path.isfile(os.path.join(c, KRITA_DESKTOP_NAME)) and os.path.isdir(
-            os.path.join(c, KRITA_PLUGIN_NAME)
-        ):
-            return c
-    return None
+    return os.path.normpath(os.path.join(here, "..", "krita_side"))
 
 
 def draw_status_block(layout, status):
@@ -268,6 +259,10 @@ class BRIDGE_OT_install_krita_side(bpy.types.Operator):
         except OSError as exc:
             self.report({"ERROR"}, "Could not install Krita side: {}".format(exc))
             return {"CANCELLED"}
+        # Generate/share the per-install bridge key so Krita can authenticate.
+        bridge_key.ensure_key(
+            os.path.join(target, KRITA_PLUGIN_NAME, bridge_key.KEY_FILENAME)
+        )
         check_status(force=True)
         self.report({"INFO"}, "Krita side installed to {}".format(target))
         return {"FINISHED"}

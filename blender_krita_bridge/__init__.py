@@ -10,7 +10,7 @@ lazily imported inside `register()` / `unregister()`.
 bl_info = {
     "name": "StoryPaint",
     "author": "StoryPaint",
-    "version": (1, 0, 1),
+    "version": (1, 1, 0),
     "blender": (5, 2, 0),
     "location": "3D Viewport > Sidebar",
     "description": (

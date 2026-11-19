@@ -21,10 +21,14 @@ SUPPORTED_FORMATS = (FORMAT_SVG, FORMAT_PNG)
 COORDINATE_2D = "2d_projected"
 
 # Socket bridge (Blender <-> Krita) over multiprocessing.connection.
+# Messages are JSON dicts sent with send_bytes/recv_bytes (never pickle); the
+# connection is authenticated by a per-install random key (see core/bridge_key).
 # Keep in sync with krita_plugin/krita_bridge/connection.py.
-BRIDGE_HOST = "localhost"
+BRIDGE_HOST = "127.0.0.1"
 BRIDGE_PORT = 65432
-BRIDGE_AUTHKEY = b"blender_krita_bridge"
+
+# Hard upper bound for a single message (defends against a misbehaving peer).
+MAX_MESSAGE_BYTES = 64 * 1024 * 1024  # 64 MiB
 
 MSG_HELLO = "HELLO"              # peer announces itself on connect
 MSG_EXPORT = "EXPORT"            # Blender -> Krita: show the drawing

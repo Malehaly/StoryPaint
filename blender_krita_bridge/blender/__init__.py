@@ -19,6 +19,7 @@ from . import (
     image_import,
     krita_check,
     load_startup,
+    properties,
     ui,
     vse_frame_range,
 )
@@ -26,6 +27,7 @@ from . import (
 
 def register():
     """Register operators, panels, properties and start the bridge server."""
+    properties.register()
     asset_library.register()
     export_package.register()
     export_image_planes.register()
@@ -33,7 +35,6 @@ def register():
     load_startup.register()
     ui.register()
     animated_text.register()
-    connection.BridgeServer.instance().start()
     connection.register_timer()
     connection.register_handler()
     image_import.register_handler()
@@ -62,3 +63,4 @@ def unregister():
     asset_library.unregister()
     export_image_planes.unregister()
     export_package.unregister()
+    properties.unregister()

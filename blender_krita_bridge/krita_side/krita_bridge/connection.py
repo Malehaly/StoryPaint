@@ -1,24 +1,57 @@
 """Krita-side client to Blender's bridge server.
 
 Mirror of `blender_krita_bridge/core/protocol.py` — keep constants in sync.
+Messages are JSON dicts sent with send_bytes/recv_bytes (never pickle); the
+auth key is a random per-install key stored in ``bridge_key.json`` next to this
+module (Blender writes it when the bridge is enabled / the plugin is installed).
 """
 
 from __future__ import annotations
 
+import json
 import os
 import tempfile
 import threading
 import time
 from multiprocessing.connection import Client
 
-HOST = "localhost"
+HOST = "127.0.0.1"
 PORT = 65432
-AUTHKEY = b"blender_krita_bridge"
+MAX_MESSAGE_BYTES = 64 * 1024 * 1024
 
 MSG_HELLO = "HELLO"
 MSG_EXPORT = "EXPORT"
 MSG_IMPORT_BACK = "IMPORT_BACK"
 MSG_STATUS = "STATUS"
+
+_KEY_PATH = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "bridge_key.json"
+)
+
+
+def _load_authkey():
+    """Read the per-install key (written by Blender); None until it exists."""
+    try:
+        with open(_KEY_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, ValueError):
+        return None
+    key = data.get("key") if isinstance(data, dict) else None
+    if isinstance(key, str) and key:
+        return key.encode("ascii")
+    return None
+
+
+def _send_json(conn, msg):
+    conn.send_bytes(json.dumps(msg).encode("utf-8"))
+
+
+def _recv_json(conn):
+    raw = conn.recv_bytes(MAX_MESSAGE_BYTES)
+    msg = json.loads(raw.decode("utf-8"))
+    if not isinstance(msg, dict) or not isinstance(msg.get("type"), str):
+        raise ValueError("invalid bridge message")
+    return msg
 
 
 def _log(event: str, detail: str = ""):
@@ -33,7 +66,7 @@ def _log(event: str, detail: str = ""):
 
 
 class BridgeClient:
-    """Connects to Blender's listener and exchanges pickled dict messages.
+    """Connects to Blender's listener and exchanges JSON dict messages.
 
     All socket I/O (send AND recv) happens on the single ``_run`` thread; a
     `multiprocessing.connection.Connection` must NOT be used from two threads
@@ -63,13 +96,22 @@ class BridgeClient:
 
     def _run(self):
         while self._running:
+            authkey = _load_authkey()
+            if authkey is None:
+                # Blender hasn't written the key yet (bridge not enabled, or
+                # the plugin was installed manually before Blender ran).
+                for _ in range(6):
+                    if not self._running:
+                        return
+                    time.sleep(0.5)
+                continue
             try:
-                with Client((HOST, PORT), authkey=AUTHKEY) as conn:
+                with Client((HOST, PORT), authkey=authkey) as conn:
                     with self._lock:
                         self._conn = conn
                     _log("CONNECT", "connected to Blender")
                     try:
-                        conn.send({"type": MSG_HELLO, "application": "Krita"})
+                        _send_json(conn, {"type": MSG_HELLO, "application": "Krita"})
                     except (OSError, EOFError):
                         pass
                     while self._running:
@@ -80,7 +122,7 @@ class BridgeClient:
                         send_failed = False
                         for msg in pending:
                             try:
-                                conn.send(msg)
+                                _send_json(conn, msg)
                             except (OSError, EOFError):
                                 # The peer closed the socket. Break out of the
                                 # WHOLE inner loop to force a reconnect — do NOT
@@ -95,10 +137,10 @@ class BridgeClient:
                         try:
                             if not conn.poll(0.05):
                                 continue
-                            msg = conn.recv()
+                            msg = _recv_json(conn)
                             with self._lock:
                                 self._inbox.append(msg)
-                        except (OSError, EOFError):
+                        except (OSError, EOFError, ValueError):
                             break
             except (OSError, EOFError, ConnectionRefusedError):
                 pass

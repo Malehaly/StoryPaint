@@ -60,8 +60,9 @@ def ensure_asset_library() -> None:
 
     Checks whether a library named ``StoryPaint`` already exists: if it does we
     do NOT create a duplicate, we only make sure the bundled catalog file is
-    present. On first run it also saves the preferences so the library survives
-    a restart.
+    present. The registration is left for the user to save — we never call
+    ``save_userpref`` automatically, because that would persist every pending
+    preference change, not just the asset library.
     """
     _write_catalog_file()
     libs = bpy.context.preferences.filepaths.asset_libraries
@@ -69,13 +70,9 @@ def ensure_asset_library() -> None:
         if lib.name == LIBRARY_NAME:
             return  # already registered
     try:
-        lib = libs.new(name=LIBRARY_NAME, directory=_library_dir())
+        libs.new(name=LIBRARY_NAME, directory=_library_dir())
     except Exception:  # noqa: BLE001
         return
-    try:
-        bpy.ops.wm.save_userpref()
-    except Exception:  # noqa: BLE001
-        pass
 
 
 classes = ()

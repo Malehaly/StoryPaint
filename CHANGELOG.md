@@ -5,6 +5,33 @@ All notable changes to StoryPaint are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses `MAJOR.MINOR.PATCH` versioning.
 
+## [1.1.0] - 2026-11-19
+
+### Security
+
+- Replaced the pickle wire protocol with JSON over `send_bytes`/`recv_bytes`
+  (with a message-size cap and strict validation).
+- Replaced the fixed bridge auth key with a random, per-install key shared via
+  a `bridge_key.json` file in the installed Krita plugin.
+- The bridge listener is now **off by default**, toggled from the StoryPaint
+  panel's **Bridge Connection** section, and it turns **OFF on every file open /
+  new file** (the enable choice is per-session only).
+- Removed the automatic `save_userpref()` call on add-on register.
+- Removed the dev-only `krita_plugin/` fallback install path.
+
+### Added
+
+- "Save images inside" configuration: returned images are packed into the
+  `.blend` by default, with an option to store them in a folder next to the
+  `.blend` file.
+
+### Changed
+
+- External image storage now writes the **original compressed bytes** (folder
+  size matches the packed `.blend` instead of re-encoding at low compression),
+  and switching back to pack-in-blend deletes the external folder.
+- Configuration title moved above the storage dropdown for readability.
+
 ## [1.0.1] - 2026-11-11
 
 ### Added

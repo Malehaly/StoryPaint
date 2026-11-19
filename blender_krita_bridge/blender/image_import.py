@@ -35,8 +35,9 @@ def _preload_image(img):
 
 
 def _load_image(path):
-    """Load an image and pre-warm it (see ``_preload_image``)."""
+    """Load an image, tag it as StoryPaint-owned and pre-warm it."""
     img = bpy.data.images.load(path)
+    img["bridge_image"] = True
     _preload_image(img)
     return img
 
@@ -487,14 +488,130 @@ def _on_depsgraph_update(scene, depsgraph):
         print("BRIDGE: depsgraph sync error:", type(exc).__name__, exc)
 
 
+IMAGE_TAG = "bridge_image"
+
+
+def _images_folder(blend_path):
+    """Return the absolute ``<blend>_images`` folder next to ``blend_path``."""
+    base = os.path.splitext(os.path.basename(blend_path))[0]
+    return os.path.join(os.path.dirname(blend_path), base + "_images")
+
+
+def _remove_external_copies(images, folder):
+    """Delete the on-disk PNGs left by a previous EXTERNAL save.
+
+    Only removes files that live inside the .blend's own ``<name>_images``
+    folder AND are referenced by StoryPaint images; the folder itself is removed
+    once empty. A user's own files are never touched.
+    """
+    folder_abs = os.path.normpath(folder).lower()
+    prefix = folder_abs + os.sep
+    for img in images:
+        fp = img.filepath
+        if not fp:
+            continue
+        try:
+            full = os.path.normpath(bpy.path.abspath(fp)).lower()
+        except Exception:  # noqa: BLE001
+            continue
+        if not full.startswith(prefix):
+            continue
+        try:
+            if os.path.isfile(full):
+                os.remove(full)
+        except OSError:
+            pass
+    try:
+        if os.path.isdir(folder) and not os.listdir(folder):
+            os.rmdir(folder)
+    except OSError:
+        pass
+
+
+def reconcile_image_storage(scene):
+    """Store every StoryPaint image according to the storage setting.
+
+    ``INTERNAL`` packs the images into the .blend and deletes the external
+    copies left by a previous ``EXTERNAL`` save (so nothing stays duplicated).
+    ``EXTERNAL`` writes the images to a folder next to the .blend and points
+    the images at it with relative paths. Runs on save.
+    """
+    mode = getattr(scene, "storypaint_image_storage", "INTERNAL")
+    images = [img for img in bpy.data.images if img.get(IMAGE_TAG)]
+    if not images:
+        return
+
+    blend_path = bpy.data.filepath
+    if not blend_path:
+        # An unsaved .blend has no folder to sit next to yet; just pack in place.
+        if mode == "INTERNAL":
+            for img in images:
+                if not img.packed_file:
+                    try:
+                        img.pack()
+                    except Exception:  # noqa: BLE001
+                        pass
+        return
+
+    folder = _images_folder(blend_path)
+
+    if mode == "INTERNAL":
+        for img in images:
+            if not img.packed_file:
+                try:
+                    img.pack()
+                except Exception:  # noqa: BLE001
+                    pass
+        _remove_external_copies(images, folder)
+        return
+
+    # EXTERNAL: write next to the .blend and reference relatively.
+    os.makedirs(folder, exist_ok=True)
+    for img in images:
+        # Pack first: the packed copy holds the ORIGINAL compressed bytes, so
+        # writing it out directly keeps the file size identical to the packed
+        # .blend (img.save() would re-encode at Blender's low default PNG
+        # compression and bloat the folder).
+        if not img.packed_file:
+            try:
+                img.pack()
+            except Exception:  # noqa: BLE001
+                pass
+        rel = "//{}/{}".format(os.path.basename(folder), img.name)
+        full = os.path.join(folder, img.name)
+        try:
+            if img.packed_file:
+                with open(full, "wb") as f:
+                    f.write(bytes(img.packed_file.data))
+                img.filepath = rel
+                img.unpack(method="REMOVE")
+            else:
+                img.filepath = rel
+                img.save()
+        except Exception:  # noqa: BLE001
+            continue
+
+
+@bpy.app.handlers.persistent
+def _on_save_pre(*_args):
+    try:
+        reconcile_image_storage(bpy.context.scene)
+    except Exception as exc:  # noqa: BLE001
+        print("BRIDGE: save_pre storage error:", type(exc).__name__, exc)
+
+
 def register_handler():
     if _on_depsgraph_update not in bpy.app.handlers.depsgraph_update_post:
         bpy.app.handlers.depsgraph_update_post.append(_on_depsgraph_update)
+    if _on_save_pre not in bpy.app.handlers.save_pre:
+        bpy.app.handlers.save_pre.append(_on_save_pre)
 
 
 def unregister_handler():
     if _on_depsgraph_update in bpy.app.handlers.depsgraph_update_post:
         bpy.app.handlers.depsgraph_update_post.remove(_on_depsgraph_update)
+    if _on_save_pre in bpy.app.handlers.save_pre:
+        bpy.app.handlers.save_pre.remove(_on_save_pre)
 
 
 def _build_plane(scene, image, target_obj, name: str, z_offset: float = 0.0, collection=None):

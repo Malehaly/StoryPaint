@@ -13,6 +13,9 @@ tmp_*.zip
 # Blender auto-backup files
 *.blend1
 
+# Per-install bridge auth key (generated at runtime; never committed or shipped)
+bridge_key.json
+
 # C extensions
 *.so
 

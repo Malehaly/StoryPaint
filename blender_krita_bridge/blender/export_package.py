@@ -67,6 +67,9 @@ class BRIDGE_OT_export_package(bpy.types.Operator):
             for l in result["layers"]
         ]
         server = connection.BridgeServer.instance()
+        if not connection.bridge_enabled():
+            self.report({"WARNING"}, "Enable the StoryPaint bridge first")
+            return {"CANCELLED"}
         server.start()
         message = {
             "type": protocol.MSG_EXPORT,

@@ -1,20 +1,54 @@
-"""Socket bridge between Blender and Krita (multiprocessing.connection).
+"""Socket bridge between Blender and Krita (multiprocessing.connection + JSON).
 
 Blender is the listener (server); Krita connects and stays connected. Messages
-are pickled dicts. Received messages are queued and drained by a `bpy.app.timers`
-callback so bpy work runs on the main thread (see `register_timer`).
+are JSON dicts sent with ``send_bytes``/``recv_bytes`` (never pickle), guarded by
+a per-install random auth key. Received messages are queued and drained by a
+`bpy.app.timers` callback so bpy work runs on the main thread.
+
+The listener is OFF by default and only starts when the user enables the bridge
+from the StoryPaint panel.
 """
 
 from __future__ import annotations
 
+import json
 import threading
 from multiprocessing.connection import Listener
 
 import bpy
 
-from ..core import protocol
+from ..core import bridge_key, protocol
 
 _POLL_INTERVAL = 0.2
+
+# Session-scoped on/off state: OFF on every Blender launch.
+_bridge_enabled = False
+
+
+def bridge_enabled() -> bool:
+    return _bridge_enabled
+
+
+def set_bridge_enabled(on: bool):
+    global _bridge_enabled
+    _bridge_enabled = bool(on)
+    server = BridgeServer.instance()
+    if _bridge_enabled:
+        server.start()
+    else:
+        server.stop()
+
+
+def _send_json(conn, msg):
+    conn.send_bytes(json.dumps(msg).encode("utf-8"))
+
+
+def _recv_json(conn):
+    raw = conn.recv_bytes(protocol.MAX_MESSAGE_BYTES)
+    msg = json.loads(raw.decode("utf-8"))
+    if not isinstance(msg, dict) or not isinstance(msg.get("type"), str):
+        raise ValueError("invalid bridge message")
+    return msg
 
 
 class BridgeServer:
@@ -67,7 +101,7 @@ class BridgeServer:
         try:
             self._listener = Listener(
                 (protocol.BRIDGE_HOST, protocol.BRIDGE_PORT),
-                authkey=protocol.BRIDGE_AUTHKEY,
+                authkey=bridge_key.ensure_key(),
             )
         except OSError:
             # Port already in use (another Blender instance) — nothing to serve.
@@ -111,14 +145,14 @@ class BridgeServer:
                 self._outbox = []
             for msg in pending:
                 try:
-                    conn.send(msg)
+                    _send_json(conn, msg)
                 except (OSError, EOFError):
                     return
             # Receive any inbound message.
             try:
                 if not conn.poll(_POLL_INTERVAL):
                     continue
-                msg = conn.recv()
+                msg = _recv_json(conn)
             except (EOFError, OSError):
                 return
             except Exception as exc:  # noqa: BLE001
@@ -184,11 +218,11 @@ def _poll_timer():
     # forever ("sent from Krita but never arrives in Blender").
     try:
         server = BridgeServer.instance()
-        # Self-heal: if the serve thread died (or was never started), bring the
-        # listener back without needing a file load. `start()` is a cheap no-op
-        # when the server is already healthy.
-        if not server.running or server._thread is None or not server._thread.is_alive():
-            server.start()
+        if bridge_enabled():
+            # Self-heal: if the serve thread died (or was never started), bring
+            # the listener back. `start()` is a cheap no-op when healthy.
+            if not server.running or server._thread is None or not server._thread.is_alive():
+                server.start()
         for msg in server.drain_inbox():
             try:
                 _handle_message(msg)
@@ -225,9 +259,19 @@ def _on_load_post(*_args):
     timer is never re-registered and inbound Krita messages never get drained.
     """
     try:
-        BridgeServer.instance().start()
+        # Security: every file load / new file starts with the bridge OFF. The
+        # enable choice is per-session only, so re-open re-locks the listener.
+        set_bridge_enabled(False)
         register_timer()
-        _log("LOAD_POST", "server + timer re-registered")
+        # Force the panel checkbox OFF too (it must never show a stale enabled
+        # state inherited from a previous session).
+        try:
+            scene = bpy.context.scene
+            if hasattr(bpy.types.Scene, "storypaint_bridge_enabled"):
+                scene.storypaint_bridge_enabled = False
+        except Exception:  # noqa: BLE001
+            pass
+        _log("LOAD_POST", "server + timer re-registered (bridge OFF)")
     except Exception as exc:  # noqa: BLE001
         print("BRIDGE: load_post error:", type(exc).__name__, exc)
 
