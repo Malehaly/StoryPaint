@@ -106,6 +106,8 @@ class BRIDGE_OT_export_image_planes(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
+        if not connection.bridge_enabled():
+            return False
         if any(_is_bridge_plane(o) for o in context.selected_objects):
             return True
         # Outliner context menu: context.id is the object under the cursor.

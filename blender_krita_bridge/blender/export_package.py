@@ -32,6 +32,8 @@ class BRIDGE_OT_export_package(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
+        if not connection.bridge_enabled():
+            return False
         obj = context.object
         if obj is not None and obj.type == "GREASEPENCIL":
             return True

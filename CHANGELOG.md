@@ -11,6 +11,8 @@ and this project uses `MAJOR.MINOR.PATCH` versioning.
 
 - Replaced the pickle wire protocol with JSON over `send_bytes`/`recv_bytes`
   (with a message-size cap and strict validation).
+- Received messages are validated against a whitelist of message types with
+  per-type field checks, type checks and collection-size caps (both sides).
 - Replaced the fixed bridge auth key with a random, per-install key shared via
   a `bridge_key.json` file in the installed Krita plugin.
 - The bridge listener is now **off by default**, toggled from the StoryPaint
@@ -31,6 +33,8 @@ and this project uses `MAJOR.MINOR.PATCH` versioning.
   size matches the packed `.blend` instead of re-encoding at low compression),
   and switching back to pack-in-blend deletes the external folder.
 - Configuration title moved above the storage dropdown for readability.
+- Export operators grey out in menus (e.g. the Outliner right-click) when the
+  bridge is off.
 
 ## [1.0.1] - 2026-11-11
 

@@ -46,9 +46,7 @@ def _send_json(conn, msg):
 def _recv_json(conn):
     raw = conn.recv_bytes(protocol.MAX_MESSAGE_BYTES)
     msg = json.loads(raw.decode("utf-8"))
-    if not isinstance(msg, dict) or not isinstance(msg.get("type"), str):
-        raise ValueError("invalid bridge message")
-    return msg
+    return protocol.validate_message(msg)
 
 
 class BridgeServer:
